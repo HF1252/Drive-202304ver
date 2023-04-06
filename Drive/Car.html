@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="jp">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drive</title>
+</head>
+<body onload=initw()>
+    <div>
+        <canvas id="canvas" width="800" height="800" tabindex="1"></canvas>
+        <canvas id="canvas2" width="800" height="800" tabindex="2"></canvas>
+    </div>
+
+    <script crossorigin="anonymous">
+        var bg;
+                //キャンバスとコンテキスト入れる配列
+                var canvas = [];
+                var context = [];
+
+                //キーを押された時の変数
+                var rPress = 0;
+                var lPress = 0;
+                var uPress = 0;
+                var dPress = 0;
+
+                //道の配列
+                var road = [];
+
+                //画像を保持する変数
+                var imgm;
+                var imgt;
+                var imge;
+                var imgf;
+
+                //操作するxとyの位置
+                var posx = 100;
+                var posy = 500;
+
+                //実機の下道路
+                var nn = 0;
+
+                //敵の配列
+                var enmy = [];
+
+                //プレイ中orゲームオーバーしたかの変数
+                var gamemode = 1;
+
+                //走行距離
+                var counter = 0;
+
+                //初期化関数
+                function initw() {
+                
+                    //HTMLからIDキャンバスを取得
+                    canvas[0] = document.getElementById('canvas');
+                    canvas[1] = document.getElementById('canvas2');
+
+                    //両方のコンテキストを取得
+                    context[0] = canvas[0].getContext('2d');
+                    context[1] = canvas[1].getContext('2d');
+
+                    //キーイベントの登録
+                    //キーを押した時
+                    document.addEventListener("keydown", keyDownHandler, false);
+                    //キーを話した時
+                    document.addEventListener("keyup", keyUpHandler, false);
+                
+                    //画像の読み込み
+                    imgm = new Image();
+                    imgm.src = "./Img/topview_car.png";
+                    imgt = new Image();
+                    imgt.src = "./Img/topview_car_truck.png";
+                    imge = new Image();
+                    imge.src = "./Img/topview_car_wagon.png";
+                    imgf = new Image();
+                    imgf.src = "./Img/fire.png";
+                
+                    //道路の始まり
+                    var s = 2;
+                    //道路の終わり
+                    var e = 42;
+                    //中央線
+                    var m = 22;
+                    //づらす幅(曲がる道を指定)
+                    var t = 0;
+
+                    //道路の幅を変更する処理
+                    for (var i = 0; i < 1500; i++) {
+                        road[i] = Array(50);
+                        if (i == 150) t = 1;
+                        if (i == 250) t = 0;
+                        if (i == 450) t = 1;
+                        if (i == 500) t = 0;
+                        if (i == 650) t = 1;
+                        if (i == 750) t = 0;
+                        if (i == 850) t = -1;
+                        if (i == 950) t = 0;
+                        if (i == 1050) t = -1;
+                        if (i == 1150) t = 0;
+                        if (i == 1350) t = -1;
+                        if (i == 1400) t = 0;
+                    
+                        if (i % 5 == 0) {
+                            s = s + t;
+                            e = e + t;
+                            m = m + t;
+                        }
+                        //左幅(緑)
+                        for (var f = 0; f < s; f++) {
+                            road[i][f] = 0;
+                        }
+                        //黒線(左側)
+                        road[i][s - 1] = 3;
+                        //中央グレー道路
+                        for (var f = s; f < e; f++) {
+                            road[i][f] = 1;
+                        }
+                        //黒線(右側)
+                        road[i][e - 1] = 3;
+                    
+                        //中央線(白線)
+                        if (i % 20 > 10) {
+                            road[i][m] = 2;
+                        }
+                        //右幅(緑)
+                        for (var f = e; f < 50; f++) {
+                            road[i][f] = 0;
+                        }
+                    }
+                
+                    //敵の出てくるオブジェクト(三項演算子)
+                    //敵は5台配置
+                    for (var i = 0; i < 5; i++) {
+                        enmy[i] = Object();
+                        enmy[i].n = 0;
+                        enmy[i].x = getRandomInt(100) + 100;
+                        enmy[i].y = 700 * i - 3000;
+                        enmy[i].img = (i == 0) ? imgt : imge;
+                    }
+                    bg = 1;
+                    Onanime();
+                }
+                function getRandomInt(max) {
+                    return Math.floor(Math.random() * max);
+                }
+
+                //画面レートに合わせて取得
+                var yp = 0;
+                function Onanime() {
+                    //ゲーム中
+                    if (gamemode == 1) {
+                        //yp道路の配列読み込み
+                        yp++; counter++;
+                        //キーを押された時に値(位置)が変わる
+                        posx += rPress;
+                        posx -= lPress;
+                        posy += dPress;
+                        posy -= uPress;
+                    }
+                    //実機の位置を道路の構造体を確認（道路はみ出チェック）
+                    var xx = Math.round((posx) / 8);
+                    var yy = Math.round((800 - posy) / 8);
+                    nn = road[yp + yy][xx];
+                    //1or2or3(黒線orグレーor中央線以外)ゲームオーバー
+                    if (nn == 1 || nn == 2 || nn == 3) {
+                    } else { gamemode = 0; }
+                
+                    //実機の位置を差分を求める
+                    for (i = 0; i < 5; i++) {
+                        //絶対値をとって横の距離
+                        var yoko = Math.abs(enmy[i].x - posx);
+                        //絶対値をとって縦の距離
+                        var tate = Math.abs(enmy[i].y - posy);
+                        //位置の差が32以下の場合
+                        if (yoko < 32 && tate < 32) {
+                            gamemode = 0;
+                        }
+                        //プレイ中は敵が少しづつ下へ近づく
+                        if (gamemode == 1) {
+                            enmy[i].y += getRandomInt(5);
+                        } 
+                        //ゲームオーバー時敵が上へ去っていく
+                        else {
+                            enmy[i].y -= 10;
+                        }
+                        //敵の位置が道路ではどこになるかの処理
+                        xx = Math.round((enmy[i].x) / 8);
+                        yy = Math.round((800 - enmy[i].y) / 8);
+                    
+                        //最初に現れる時は、道路以外にいた場合(道路の上まで移動)処理
+                        if (enmy[i].y == 0) {
+                            //中央線の位置
+                            if (road[yp + yy][xx] != 1) {
+                                //移動
+                                for (var ii = 0; ii < 100; ii++) {
+                                    if (road[yp + yy][ii] == 2) {
+                                        enmy[i].x = ii * 8;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        //はみ出しない様にする処理
+                        if (xx > 0 && yy > 0 && yp + yy < 1400) {
+                            enmy[i].n = road[yp + yy][xx];
+                            for (var ii = 0; ii < 100; ii++) {
+                                if (road[yp + yy][ii] == 2) {
+                                    //全て中央線にならない様に、ランダム(右側or左側)に配置
+                                    var xt = (i % 2 == 0) ? 4 : -4;
+                                    if (ii < xx + xt) {
+                                        enmy[i].x -= 2;
+                                        enmy[i].y += 2;
+                                    } else {
+                                        //少しづつ近づく処理
+                                        enmy[i].y += 2;
+                                        enmy[i].x += 2;
+                                    }
+                                }
+                            }
+                        }
+                        //下まで通過したら、上へ戻す処理
+                        if (enmy[i].y > 800) enmy[i].y = -200;
+                    }
+                    //道路が最後まで読み込んだら、先頭へ戻る処理
+                    if (yp > 1400) yp = 0;
+                    draw(yp);
+                    requestAnimationFrame(Onanime);
+                }
+                function draw(yp) {
+                    context[bg].fillStyle = "Bluck";
+                    context[bg].fillRect(0, 0, 800, 800);
+                    context[bg].fillStyle = "Green";
+                    context[bg].fillRect(0, 0, 800, 800);
+                    for (var x = 0; x < 100; x++) {
+                        for (var y = 0; y < 100; y++) {
+                            //1ならグレー(道路)
+                            if (road[y + yp][x] == 1) {
+                                context[bg].fillStyle = "Gray";
+                                context[bg].fillRect(x * 8, 800 - (y * 8), 8, 8);
+                            }
+                            //２なら白(中央線)
+                            if (road[y + yp][x] == 2) {
+                                context[bg].fillStyle = "White";
+                                context[bg].fillRect(x * 8, 800 - (y * 8), 8, 8);
+                            }
+                            //３なら黒(黒線)
+                            if (road[y + yp][x] == 3) {
+                                context[bg].fillStyle = "Black";
+                                context[bg].fillRect(x * 8, 800 - (y * 8), 8, 8);
+                            }
+                        }
+                    }
+                    //実機
+                    context[bg].drawImage(imgm, posx - 32, posy - 32, 64, 64);
+                    //実機ゲームオーバー時の処理
+                    if(gamemode==0)context[bg].drawImage(imgf, posx - 20, posy - 20, 40, 40);
+                
+                    //敵の車
+                    for (i = 0; i < 5; i++) {
+                        context[bg].drawImage(enmy[i].img, enmy[i].x - 32, enmy[i].y - 32, 64, 64);
+                    }
+
+                    //走行距離
+                    context[bg].font = " 30px MS UI Gothic";
+                    context[bg].fillStyle = "Black";
+                    context[bg].fillText(counter + "m", 10, 50);
+                    Render();
+                }
+                //キャンバス裏と表をひっくり返す
+                function Render() {
+                    canvas[1 - bg].style.display = 'none';
+                    canvas[bg].style.display = 'block';
+                    bg = 1 - bg;
+                }
+                //キーアップイベント
+                function keyUpHandler(e) {
+                    //右
+                    if (e.key == "ArrowRight") {
+                        rPress = 0;
+                    } 
+                    //左
+                    else if (e.key == "ArrowLeft") {
+                        lPress = 0;
+                    }
+                    //上
+                    else if (e.key == "ArrowUp") {
+                        uPress = 0;
+                    }
+                    //下
+                    else if (e.key == "ArrowDown") {
+                        dPress = 0;
+                    }
+                }
+                //キーイベント(押された時に呼出)
+                function keyDownHandler(e) {
+                    //右
+                    if (e.key == "ArrowRight") {
+                        rPress = 3;
+                    }
+                    //左
+                    else if (e.key == "ArrowLeft") {
+                        lPress = 3;
+                    }
+                    //上
+                    else if (e.key == "ArrowUp") {
+                        uPress = 3;
+                    }
+                    //下
+                    else if (e.key == "ArrowDown") {
+                        dPress = 3;
+                    }
+                }
+            
+    </script>
+</body>
+</html>
